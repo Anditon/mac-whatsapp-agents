@@ -1,5 +1,7 @@
 # MAC SportsClub WhatsApp agents
 
+**Case study:** [anditon.github.io/mac-whatsapp-agents](https://anditon.github.io/mac-whatsapp-agents/) tells the story, with the flow charts and incidents. This repository is the code behind it.
+
 The WhatsApp automation I built and run for [MAC SportsClub](https://macmaastricht.nl) in Maastricht, a gym with two buildings and about 1,300 active members. It has been live since April 2026: 20 n8n workflows that reply to new leads within minutes, follow up trial classes, nudge members who stop coming, offer upgrades, and hand anything uncertain to the front desk.
 
 Two parts use Claude:
@@ -17,6 +19,7 @@ Two parts use Claude:
 | --- | --- |
 | [`assistant-harness/`](assistant-harness/) | The assistant's prompt, gate, Claude call and a 33-case eval, runnable locally. It mirrors the production nodes. |
 | [`n8n/`](n8n/) | Ten Code nodes and one request body exported from the live workflows: the assistant, the classifier, phone validation, the live member check, the inactivity re-check, delivery receipts and the health check. |
+| [`docs/index.html`](docs/index.html) | The case study page, served by GitHub Pages. |
 | [`docs/architecture.md`](docs/architecture.md) | How data flows, how both agents decide, the member lifecycle and the daily schedule. |
 | [`docs/lessons.md`](docs/lessons.md) | The rules production taught me, each traced to the incident behind it. |
 

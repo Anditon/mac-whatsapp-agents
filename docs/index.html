@@ -1,0 +1,844 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WhatsApp Front Desk Agents</title>
+<meta name="description" content="How I built and run the WhatsApp front desk of MAC SportsClub: 20 n8n workflows and two Claude agents, a trial classifier and a draft-first assistant.">
+<meta name="robots" content="noindex">
+<meta property="og:type" content="article">
+<meta property="og:title" content="A WhatsApp front desk for a gym, with two Claude agents in it">
+<meta property="og:description" content="How I built and run the WhatsApp front desk of MAC SportsClub: 20 n8n workflows and two Claude agents, a trial classifier and a draft-first assistant.">
+<meta property="og:url" content="https://anditon.github.io/mac-whatsapp-agents/">
+<meta property="og:image" content="https://anditon.github.io/mac-whatsapp-agents/inbox-demo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one reading column (~44rem) with wider breakouts for the fit table, diagram and incident grid. */
+:root {
+  --bg: #F4F6F3;
+  --surface: #FFFFFF;
+  --ink: #14211D;
+  --muted: #56665F;
+  --line: #D6DFDA;
+  --line-strong: #A9B8B1;
+  --accent: #0D6A56;
+  --accent-soft: #E0EFE9;
+  --hand: #9C4C0C;
+  --hand-soft: #F7EADC;
+  --tick: #2A66D3;
+  --bubble-in: #FFFFFF;
+  --bubble-out: #DDF1E8;
+  --code-bg: #EEF2EF;
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --col: 44rem;
+  --wide: 66rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1513; --surface: #141E1B; --ink: #E3EBE7; --muted: #98A9A2; --line: #26342F; --line-strong: #44564F;
+    --accent: #4CC6A4; --accent-soft: #15302A; --hand: #F0A55E; --hand-soft: #33251A; --tick: #82AAF6;
+    --bubble-in: #1A2622; --bubble-out: #173A30; --code-bg: #111A17;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E1513; --surface: #141E1B; --ink: #E3EBE7; --muted: #98A9A2; --line: #26342F; --line-strong: #44564F;
+  --accent: #4CC6A4; --accent-soft: #15302A; --hand: #F0A55E; --hand-soft: #33251A; --tick: #82AAF6;
+  --bubble-in: #1A2622; --bubble-out: #173A30; --code-bg: #111A17;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 4rem;
+}
+body { overflow-wrap: break-word; }
+section > .wrap > *, section > .wide > *, .hero-grid > *, .incident > *, .lane > * { min-width: 0; }
+a { color: var(--accent); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2rem, 5.2vw, 3.25rem); font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: clamp(1.5rem, 3.4vw, 2rem); font-weight: 700; letter-spacing: -0.01em; }
+h3 { font-size: 1.2rem; font-weight: 700; }
+p { margin: 0; }
+code, .mono { font-family: var(--mono); font-size: 0.86em; }
+:not(pre) > code { background: var(--code-bg); padding: 0.08em 0.35em; border-radius: 4px; }
+.eyebrow {
+  font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted);
+}
+
+.wrap { max-width: var(--col); margin-inline: auto; }
+.wide { max-width: var(--wide); margin-inline: auto; }
+section { padding-block: 3.25rem 0; }
+section > .wrap, section > .wide { display: flex; flex-direction: column; gap: 1.1rem; }
+.rule { border: 0; border-top: 1px solid var(--line); margin: 0; }
+
+/* ---------- hero ---------- */
+.hero { padding-block: 3.5rem 0; }
+.hero-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 3rem; align-items: start; }
+.hero-text { display: flex; flex-direction: column; gap: 1.25rem; min-width: 0; }
+.lede { font-size: 1.2rem; line-height: 1.55; }
+.note { color: var(--muted); font-size: 0.95rem; }
+
+.phone {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 22px;
+  padding: 1rem; display: flex; flex-direction: column; gap: 0.6rem; min-width: 0;
+}
+.phone-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--line); }
+.phone-head strong { font-family: var(--display); font-size: 1rem; }
+.bubble { max-width: 88%; padding: 0.5rem 0.75rem; border-radius: 12px; font-size: 0.95rem; line-height: 1.45; }
+.bubble.in { background: var(--bubble-in); border: 1px solid var(--line); align-self: flex-start; border-top-left-radius: 4px; }
+.bubble.out { background: var(--bubble-out); align-self: flex-end; border-top-right-radius: 4px; }
+.bubble .meta { display: block; font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem; text-align: right; }
+.tool {
+  font-family: var(--mono); font-size: 0.76rem; line-height: 1.55; background: var(--code-bg);
+  border: 1px dashed var(--line); border-radius: 8px; padding: 0.5rem 0.65rem; align-self: stretch;
+  overflow-x: auto; white-space: pre;
+}
+.tool .k { color: var(--muted); }
+.tool .v-reply { color: var(--accent); font-weight: 600; }
+.tool .v-esc { color: var(--hand); font-weight: 600; }
+.draft-actions { display: flex; gap: 0.4rem; justify-content: flex-end; flex-wrap: wrap; }
+.chip {
+  font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.03em; padding: 0.15rem 0.5rem;
+  border-radius: 999px; border: 1px solid var(--line); color: var(--muted); background: var(--surface);
+}
+.chip.go { border-color: var(--accent); color: var(--accent); }
+.handover { align-self: center; font-family: var(--mono); font-size: 0.74rem; color: var(--hand); background: var(--hand-soft); padding: 0.25rem 0.7rem; border-radius: 999px; }
+.caption { font-size: 0.8rem; color: var(--muted); }
+
+.facts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-top: 2.75rem; }
+.fact { padding: 1rem 0.9rem; display: flex; flex-direction: column; gap: 0.2rem; border-left: 1px solid var(--line); min-width: 0; }
+.fact:first-child { border-left: 0; padding-left: 0; }
+.fact b { font-family: var(--display); font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.fact span { font-size: 0.85rem; color: var(--muted); line-height: 1.35; }
+
+.toc { display: flex; flex-wrap: wrap; gap: 0.35rem 1.1rem; font-size: 0.92rem; padding-top: 1.25rem; }
+.toc a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line); }
+.toc a:hover { color: var(--accent); border-color: var(--accent); }
+
+/* ---------- fit table ---------- */
+.table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.96rem; }
+th, td { text-align: left; vertical-align: top; padding: 0.8rem 1rem; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: 0; }
+th { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); font-weight: 400; }
+td:first-child { font-weight: 700; width: 30%; }
+.fit td:first-child { min-width: 12rem; }
+td .tag { display: inline-block; font-family: var(--mono); font-size: 0.68rem; font-weight: 400; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 0.45rem; margin-left: 0.3rem; vertical-align: 0.1em; }
+
+/* ---------- diagrams (inline SVG, styled from the page tokens) ---------- */
+.fig { margin: 0; display: flex; flex-direction: column; gap: 0.6rem; min-width: 0; }
+.fig-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 1rem; }
+.fig-scroll svg { display: block; width: 100%; height: auto; min-width: 760px; }
+.fig figcaption { font-size: 0.88rem; color: var(--muted); line-height: 1.5; max-width: var(--col); }
+svg.diagram { color: var(--muted); font-family: var(--body); }
+.d-box { fill: var(--bg); stroke: var(--line-strong); stroke-width: 1.25; }
+.d-ai { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2; }
+.d-hand { fill: var(--hand-soft); stroke: var(--hand); stroke-width: 2; }
+.d-group { fill: none; stroke: var(--line-strong); stroke-width: 1.25; stroke-dasharray: 5 5; }
+.d-band { fill: var(--code-bg); stroke: var(--line-strong); stroke-width: 1.25; }
+.d-lane { fill: var(--code-bg); }
+.d-edge { fill: none; stroke: currentColor; stroke-width: 1.4; }
+.d-name { fill: var(--ink); font-size: 14px; font-weight: 700; }
+.d-chip { fill: var(--ink); font-size: 13px; font-weight: 700; }
+.d-sub { fill: var(--muted); font-size: 12px; }
+.d-lab { fill: var(--muted); font-size: 11.5px; font-family: var(--mono); }
+.d-lane-name { fill: var(--ink); font-size: 13px; font-weight: 700; }
+.key { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; font-size: 0.82rem; color: var(--muted); }
+.key i { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 3px; vertical-align: -0.1em; margin-right: 0.35rem; border: 2px solid var(--line-strong); }
+.key .k-ai { background: var(--accent-soft); border-color: var(--accent); }
+.key .k-h { background: var(--hand-soft); border-color: var(--hand); }
+
+/* ---------- inbox screenshot ---------- */
+.shot { margin: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.shot img { display: block; width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--line); background: #FFFFFF; }
+.shot figcaption { font-size: 0.88rem; color: var(--muted); line-height: 1.5; max-width: var(--col); }
+
+/* ---------- member lifecycle ---------- */
+.stages { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1.6rem; }
+.stage { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 0.85rem 0.9rem; display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
+.stage:not(:last-child)::after { content: "→"; position: absolute; right: -1.25rem; top: 0.8rem; color: var(--muted); font-family: var(--mono); }
+.stage h3 { font-size: 1.02rem; }
+.stage ul { margin: 0; padding-left: 1rem; display: grid; gap: 0.35rem; font-size: 0.88rem; line-height: 1.4; }
+.stage ul li::marker { color: var(--accent); }
+.stage.stop { border-color: var(--hand); background: var(--hand-soft); }
+.stage.off { border-style: dashed; }
+.span-bar { border: 1px solid var(--accent); background: var(--accent-soft); border-radius: 10px; padding: 0.7rem 0.9rem; font-size: 0.92rem; }
+
+/* ---------- agent sections ---------- */
+.agent-head { display: flex; flex-direction: column; gap: 0.6rem; }
+.status { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.pill { font-family: var(--mono); font-size: 0.74rem; padding: 0.2rem 0.6rem; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); }
+.pill.live { border-color: var(--accent); color: var(--accent); }
+.pill.held { border-color: var(--hand); color: var(--hand); }
+.paths { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
+.path { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 0.7rem 0.85rem; display: grid; grid-template-columns: 2rem minmax(0, 1fr); gap: 0.2rem 0.6rem; }
+.path b { font-family: var(--mono); font-size: 1rem; color: var(--accent); grid-row: span 2; }
+.path.c b { color: var(--hand); }
+.path strong { font-size: 0.95rem; }
+.path span { font-size: 0.88rem; color: var(--muted); line-height: 1.4; }
+h3.sub { margin-top: 0.8rem; }
+.lesson { border-left: 3px solid var(--accent); padding: 0.2rem 0 0.2rem 1rem; }
+.lesson .eyebrow { display: block; margin-bottom: 0.25rem; }
+
+.steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.6rem; counter-reset: step; }
+.steps li { counter-increment: step; display: grid; grid-template-columns: 2rem minmax(0, 1fr); gap: 0 0.6rem; }
+.steps li::before { content: counter(step); font-family: var(--mono); font-weight: 600; color: var(--accent); width: 1.6rem; height: 1.6rem; border: 1px solid var(--accent); border-radius: 50%; display: grid; place-items: center; font-size: 0.8rem; margin-top: 0.15rem; }
+.steps strong { display: block; }
+
+pre { margin: 0; background: var(--code-bg); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.1rem; overflow-x: auto; font-family: var(--mono); font-size: 0.8rem; line-height: 1.6; }
+pre .c { color: var(--muted); }
+pre .s { color: var(--accent); }
+.code-cap { font-size: 0.82rem; color: var(--muted); }
+
+ul.plain { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.45rem; }
+ul.plain li::marker { color: var(--accent); }
+.esc-rules { margin: 0; padding-left: 1.4rem; display: grid; gap: 0.3rem; font-size: 0.96rem; }
+blockquote.prompt { margin: 0; font-family: var(--mono); font-size: 0.82rem; line-height: 1.6; background: var(--code-bg); border-radius: 8px; padding: 0.8rem 1rem; border: 1px solid var(--line); }
+
+.held-box { background: var(--hand-soft); border: 1px solid var(--hand); border-radius: 10px; padding: 1rem 1.15rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.held-box h3 { color: var(--hand); }
+
+/* ---------- incidents ---------- */
+.incidents { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem; }
+.incident { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.6rem; min-width: 0; }
+.incident .what { font-size: 0.96rem; }
+.incident .rule-line { font-size: 0.93rem; border-top: 1px dashed var(--line); padding-top: 0.6rem; color: var(--ink); }
+.incident .rule-line b { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.07em; text-transform: uppercase; color: var(--accent); font-weight: 600; margin-right: 0.35rem; }
+
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; }
+.two > div { display: flex; flex-direction: column; gap: 0.6rem; min-width: 0; }
+
+.quote { font-family: var(--display); font-weight: 500; font-size: clamp(1.25rem, 2.6vw, 1.55rem); line-height: 1.35; letter-spacing: -0.005em; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding-block: 1.25rem; }
+.quote cite { display: block; font-family: var(--body); font-style: normal; font-size: 0.85rem; color: var(--muted); margin-top: 0.6rem; letter-spacing: 0; }
+
+.idea { background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 12px; padding: 1.25rem 1.35rem; display: flex; flex-direction: column; gap: 0.7rem; }
+
+footer { padding-top: 3.5rem; }
+footer .wrap { border-top: 1px solid var(--line); padding-top: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.9rem; color: var(--muted); }
+
+@media (max-width: 860px) {
+  .hero-grid { grid-template-columns: minmax(0, 1fr); gap: 2rem; }
+  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fact { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); }
+  .fact:nth-child(-n+2) { border-top: 0; }
+  .incidents, .two, .paths { grid-template-columns: minmax(0, 1fr); }
+  .stages { grid-template-columns: minmax(0, 1fr); gap: 1.4rem; }
+  .stage:not(:last-child)::after { content: "↓"; right: auto; left: 1rem; top: auto; bottom: -1.3rem; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .toc a, a { transition: color 120ms ease, border-color 120ms ease; }
+}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wide">
+    <div class="hero-grid">
+      <div class="hero-text">
+        <span class="eyebrow">Case study · Application for AI Engineer, Agents · Anton, based in Milan</span>
+        <h1>A WhatsApp front desk for a gym, with two Claude agents in it</h1>
+        <p class="lede">Since February 2026 I have designed, built and run, on my own, the messaging system of MAC SportsClub in Maastricht: a gym with two buildings and about 1,300 active members. It replies to new leads within minutes, follows up trial classes, nudges members who stop coming, offers upgrades, and passes anything uncertain to the front desk. Two parts run on Claude: a classifier that routes every website trial request, and a WhatsApp assistant that drafts answers for staff to approve.</p>
+        <p class="note">Code: <a href="https://github.com/Anditon/mac-whatsapp-agents">github.com/Anditon/mac-whatsapp-agents</a>. Every figure here comes from the live system. Member data never appears; the inbox screenshot uses made-up conversations. I can show the live system and walk through the code in a call.</p>
+      </div>
+
+      <figure class="phone" aria-label="Example: two customer messages and what the assistant does with each">
+        <div class="phone-head"><strong>Front desk inbox</strong><span class="eyebrow">WhatsApp</span></div>
+        <div class="bubble in">Is the trial class free?<span class="meta">customer · 18:42</span></div>
+        <div class="tool"><span class="k">emit_reply {</span>
+  <span class="k">decision:</span>   <span class="v-reply">"reply"</span>
+  <span class="k">confidence:</span> 0.9
+  <span class="k">language:</span>   "EN"
+  <span class="k">reason:</span>     "Trial price is in the FAQ"
+<span class="k">}</span></div>
+        <div class="bubble out">Hi Sophie! A trial class costs €14.50, paid at the front desk. If you sign up the same day, it comes off your first invoice 😊<span class="meta">suggested reply · waiting for staff</span></div>
+        <div class="draft-actions"><span class="chip go">Send</span><span class="chip">Edit</span><span class="chip">Dismiss</span></div>
+        <div class="bubble in">Ik heb een knieblessure, kan ik wel spinning doen?<span class="meta">customer · 18:45</span></div>
+        <div class="tool"><span class="k">emit_reply {</span>
+  <span class="k">decision:</span>   <span class="v-esc">"escalate"</span>
+  <span class="k">reason:</span>     "Medical question, rule 4"
+<span class="k">}</span></div>
+        <div class="handover">Handed to the front desk · no reply sent</div>
+        <figcaption class="caption">Two messages from the bot's test set, in the output shape the production code uses. The values and wording are examples.</figcaption>
+      </figure>
+    </div>
+
+    <div class="facts" role="list">
+      <div class="fact" role="listitem"><b>9 months</b><span>built since Feb 2026, sending since April</span></div>
+      <div class="fact" role="listitem"><b>20</b><span>workflows live in production</span></div>
+      <div class="fact" role="listitem"><b>~11,900</b><span>lines of JavaScript in those workflows</span></div>
+      <div class="fact" role="listitem"><b>1,560+</b><span>automated WhatsApp sends to leads and members</span></div>
+      <div class="fact" role="listitem"><b>GREEN</b><span>Meta's quality rating for the number, its highest</span></div>
+    </div>
+
+    <nav class="toc" aria-label="On this page">
+      <a href="#fit">Your list, mapped</a>
+      <a href="#system">The system</a>
+      <a href="#inbox">The inbox</a>
+      <a href="#processes">Lifecycle and schedule</a>
+      <a href="#classifier">Agent 1: classifier</a>
+      <a href="#assistant">Agent 2: assistant</a>
+      <a href="#sending">Sending to real people</a>
+      <a href="#evals">Evals and monitoring</a>
+      <a href="#work">How I work</a>
+      <a href="#gaps">What this doesn't show</a>
+      <a href="#build">What I'd build</a>
+    </nav>
+  </div>
+</header>
+
+<section id="fit">
+  <div class="wide">
+    <h2>Your list, and where it shows up</h2>
+    <p class="wrap" style="margin-inline:0">The posting names six things the role does, plus three nice-to-haves. This is where each one appears in the project. The sections below tell the stories behind them.</p>
+    <div class="table-scroll">
+      <table class="fit">
+        <thead><tr><th>The role</th><th>In this project</th></tr></thead>
+        <tbody>
+          <tr><td>Agents that answer, book and sell on WhatsApp</td><td><b>Answer:</b> the Claude assistant, in draft mode. <b>Sell:</b> trial-to-member sequences, upsells and plan upgrades on Meta-approved templates. <b>Book:</b> the member system's API doesn't let a guest book a class (I tested it), so the assistant offers the tour link or takes a day and time for the desk. A nightly job reads real bookings so nobody who booked gets "have you come in yet?".</td></tr>
+          <tr><td>Prompts, tools and retrieval on real business data</td><td>A forced tool call with a typed schema. Knowledge from a staff-editable FAQ, corrected by mining 101 real staff answers. The live class timetable, pulled from the member system every morning. The customer's membership status in context.</td></tr>
+          <tr><td>Evaluations and monitoring, so every release is measurably better</td><td>A 33-case eval harness. Old-vs-new replays on real message history before a prompt change. Byte-identical output checks before code changes. A daily health check, per-message delivery receipts, a weekly report to the owners.</td></tr>
+          <tr><td>Where an agent hands over to a person</td><td>Seven always-escalate rules, a confidence threshold, escalation on any error, and a draft mode where staff approve each reply in an inbox I built. The assistant stands down as soon as a staff member claims a thread.</td></tr>
+          <tr><td>Reusable parts</td><td>All assistant settings (FAQ, tone, mode, threshold, on/off) sit in one settings row that staff edit from the inbox. A second gym is a new row. Every automation logs what it sent into the same inbox, so staff see one thread per person.</td></tr>
+          <tr><td>Privacy, safety and the ways agents fail</td><td>The model gets a first name and membership status, nothing more. AI processing stays limited to my test number until the club's processor agreement covers it. Do-not-contact and notice periods are checked before every send.</td></tr>
+          <tr><td>Messaging in production <span class="tag">nice to have</span></td><td>WhatsApp Cloud API: 48 approved templates in Dutch and English, delivery receipts, media, reactions, the 24-hour window rule.</td></tr>
+          <tr><td>Building with Claude <span class="tag">nice to have</span></td><td>Claude Sonnet and Haiku in production through the Messages API, with prompt caching. I build with Claude Code every day, including multi-agent reviews before risky deploys.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="system">
+  <div class="wide">
+    <h2>How the system fits together</h2>
+    <div class="wrap" style="margin-inline:0; display:flex; flex-direction:column; gap:1rem">
+      <p>Everything runs on a self-hosted n8n server. Most of the logic is JavaScript inside n8n Code nodes, because long chains of low-code nodes made bugs hard to see. The member system (Virtuagym) is the source of truth for members, check-ins, classes and invoices. Airtable holds contacts, conversations, messages and settings. A custom inbox lets the front desk read every thread, approve the assistant's drafts and send templates.</p>
+    </div>
+
+    <figure class="fig">
+      <div class="fig-scroll">
+        <svg class="diagram" viewBox="0 0 1060 500" role="img" aria-label="Data flow: four inputs, two Claude agents and the daily jobs inside n8n; every template send passes one set of gates; drafts and escalations go to the front-desk inbox; Airtable is the shared store">
+          <defs><marker id="m1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker></defs>
+          <rect class="d-group" x="240" y="16" width="480" height="390" rx="12"/>
+          <text class="d-lab" x="256" y="40">n8n · 20 workflows</text>
+          <g class="d-edge" marker-end="url(#m1)">
+            <path d="M180 88H270" marker-end="url(#m1)"/>
+            <path d="M180 178H540" marker-end="url(#m1)"/>
+            <path d="M180 268H270" marker-end="url(#m1)"/>
+            <path d="M180 358H270" marker-end="url(#m1)"/>
+            <path d="M460 88H540" marker-end="url(#m1)"/>
+            <path d="M460 268H540" marker-end="url(#m1)"/>
+            <path d="M700 178H790" marker-end="url(#m1)"/>
+            <path d="M460 358H790" marker-end="url(#m1)"/>
+            <path d="M480 406V440" marker-end="url(#m1)"/>
+            <path d="M910 390V440" marker-end="url(#m1)"/>
+          </g>
+          <text class="d-lab" x="225" y="80" text-anchor="middle">e-mail</text>
+          <text class="d-lab" x="365" y="170" text-anchor="middle">form submit</text>
+          <text class="d-lab" x="225" y="260" text-anchor="middle">API</text>
+          <text class="d-lab" x="225" y="350" text-anchor="middle">webhook</text>
+          <text class="d-lab" x="500" y="80" text-anchor="middle">A, B, R</text>
+          <text class="d-lab" x="500" y="260" text-anchor="middle">due today</text>
+          <text class="d-lab" x="745" y="170" text-anchor="middle">template</text>
+          <text class="d-lab" x="625" y="350" text-anchor="middle">draft or escalate</text>
+          <text class="d-lab" x="488" y="428">reads + writes</text>
+          <text class="d-lab" x="918" y="420">via inbox API</text>
+
+          <rect class="d-box" x="0" y="56" width="180" height="64" rx="8"/>
+          <text class="d-name" x="90" y="84" text-anchor="middle">Website trial form</text>
+          <text class="d-sub" x="90" y="104" text-anchor="middle">arrives as e-mail</text>
+          <rect class="d-box" x="0" y="146" width="180" height="64" rx="8"/>
+          <text class="d-name" x="90" y="174" text-anchor="middle">QR walk-in form</text>
+          <text class="d-sub" x="90" y="194" text-anchor="middle">filled in at the desk</text>
+          <rect class="d-box" x="0" y="236" width="180" height="64" rx="8"/>
+          <text class="d-name" x="90" y="264" text-anchor="middle">Virtuagym</text>
+          <text class="d-sub" x="90" y="284" text-anchor="middle">members and check-ins</text>
+          <rect class="d-box" x="0" y="326" width="180" height="64" rx="8"/>
+          <text class="d-name" x="90" y="354" text-anchor="middle">WhatsApp message</text>
+          <text class="d-sub" x="90" y="374" text-anchor="middle">from a lead or member</text>
+
+          <rect class="d-ai" x="270" y="56" width="190" height="64" rx="8"/>
+          <text class="d-name" x="365" y="84" text-anchor="middle">Trial classifier</text>
+          <text class="d-sub" x="365" y="104" text-anchor="middle">Claude Haiku 4.5</text>
+          <rect class="d-box" x="270" y="236" width="190" height="64" rx="8"/>
+          <text class="d-name" x="365" y="264" text-anchor="middle">Daily jobs</text>
+          <text class="d-sub" x="365" y="284" text-anchor="middle">syncs, nudges, offers</text>
+          <rect class="d-ai" x="270" y="326" width="190" height="64" rx="8"/>
+          <text class="d-name" x="365" y="354" text-anchor="middle">WhatsApp assistant</text>
+          <text class="d-sub" x="365" y="374" text-anchor="middle">Claude Sonnet 4.6</text>
+
+          <rect class="d-box" x="540" y="56" width="160" height="244" rx="8"/>
+          <text class="d-name" x="620" y="88" text-anchor="middle">Send gates</text>
+          <text class="d-sub" x="620" y="120" text-anchor="middle">do not contact</text>
+          <text class="d-sub" x="620" y="146" text-anchor="middle">notice given</text>
+          <text class="d-sub" x="620" y="172" text-anchor="middle">contract dates</text>
+          <text class="d-sub" x="620" y="198" text-anchor="middle">already a member?</text>
+          <text class="d-sub" x="620" y="224" text-anchor="middle">today's activity</text>
+          <text class="d-sub" x="620" y="250" text-anchor="middle">valid number</text>
+
+          <rect class="d-box" x="790" y="146" width="240" height="64" rx="8"/>
+          <text class="d-name" x="910" y="174" text-anchor="middle">WhatsApp templates</text>
+          <text class="d-sub" x="910" y="194" text-anchor="middle">48 approved, Dutch and English</text>
+          <rect class="d-hand" x="790" y="326" width="240" height="64" rx="8"/>
+          <text class="d-name" x="910" y="354" text-anchor="middle">Front-desk inbox</text>
+          <text class="d-sub" x="910" y="374" text-anchor="middle">staff approve, reply, take over</text>
+
+          <rect class="d-band" x="240" y="440" width="790" height="48" rx="8"/>
+          <text x="635" y="469" text-anchor="middle"><tspan class="d-name">Airtable</tspan><tspan class="d-sub" dx="10">contacts, conversations, messages, settings, send log</tspan></text>
+        </svg>
+      </div>
+      <div class="key"><span><i class="k-ai"></i>Claude</span><span><i class="k-h"></i>A person decides</span></div>
+      <figcaption>Every template send passes the same gates, whichever agent or job started it. The classifier's path C and every assistant escalation land in the inbox for a person. Intake also creates each lead in Virtuagym, which stays the source of truth for members.</figcaption>
+    </figure>
+    <p class="wrap" style="margin-inline:0">Live today: lead intake (forms and QR), trial follow-up, inactivity nudge, upsell, plan upgrade, nightly booking reconcile, three data syncs, inbound WhatsApp with the assistant, the inbox and its API, payment reminders in dry run, a daily health check and a weekly report.</p>
+  </div>
+</section>
+
+<section id="inbox">
+  <div class="wide">
+    <h2>The front-desk inbox</h2>
+    <p class="wrap" style="margin-inline:0">Meta's own inbox doesn't work with Cloud API numbers, so I built one: a single HTML and JavaScript page with hand-written CSS, backed by an n8n API. Staff see every conversation, including the automated ones, and this is where the assistant's drafts wait for a person.</p>
+    <figure class="shot">
+      <img src="inbox-demo.png" width="1440" height="900" alt="The inbox with made-up data: a conversation list on the left with lead chips, a thread in the middle with an automated Day 0 message, the customer's sauna question and the assistant's suggested reply at 92% confidence with Send, Edit and Dismiss buttons, and contact details on the right.">
+      <figcaption>The real inbox code, running against a mock API with made-up people. Left: conversations with chips for the kind of lead (Trial · Yoga, QR · Gym, 24h closed). Middle: an automated Day 0 message with read ticks, the customer's question, and the assistant's suggested reply at 92% confidence, waiting for Send, Edit or Dismiss. Right: status, source and what the person filled in on the form.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="processes">
+  <div class="wide">
+    <h2>What happens to a member, and when</h2>
+    <p class="wrap" style="margin-inline:0">Each stage of a member's life has its own automation. Once someone gives notice, every offer and nudge stops.</p>
+    <div class="stages">
+      <div class="stage"><h3>Lead</h3><ul><li>First WhatsApp within about two minutes of a form or QR scan</li><li>The classifier picks that first message</li><li>Lead created in Virtuagym</li></ul></div>
+      <div class="stage"><h3>Trial</h3><ul><li>Day 1 and Day 3 follow-ups, each after a live check</li><li>Attendance follow-up at 11:30</li><li>Nightly booking check, so nobody who booked is asked again</li></ul></div>
+      <div class="stage"><h3>Member</h3><ul><li>Nudge after 14 to 60 days without a visit or class</li><li>Upsell for members who train often</li><li>Plan upgrade, 8 to 52 weeks</li><li>Payment reminders, in dry run</li></ul></div>
+      <div class="stage stop"><h3>Notice given</h3><ul><li>Every offer and nudge stops, though they stay a member until the contract ends</li></ul></div>
+      <div class="stage off"><h3>Left</h3><ul><li>Win-back sequence: built and tested, switched off by the club</li></ul></div>
+    </div>
+    <div class="span-bar">At every stage the front desk sees the conversation in the inbox, and the assistant can answer questions (today only for my test number).</div>
+
+    <figure class="fig">
+      <div class="fig-scroll">
+        <svg class="diagram" viewBox="0 0 1060 300" role="img" aria-label="Daily schedule: data syncs at 06:00, 08:00, 10:00 and 10:15 write what the 11:00 senders read; the health check runs at 10:30; bookings are reconciled at 22:00">
+          <defs><marker id="m4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker></defs>
+          <rect class="d-lane" x="120" y="40" width="940" height="72" rx="8"/>
+          <rect class="d-lane" x="120" y="128" width="940" height="72" rx="8"/>
+          <rect class="d-lane" x="120" y="216" width="940" height="72" rx="8"/>
+          <text class="d-lane-name" x="0" y="80">Reads data</text>
+          <text class="d-lane-name" x="0" y="168">Sends</text>
+          <text class="d-lane-name" x="0" y="256">Watches</text>
+          <text class="d-lab" x="188" y="26" text-anchor="middle">06:00</text>
+          <text class="d-lab" x="304" y="26" text-anchor="middle">08:00</text>
+          <text class="d-lab" x="420" y="26" text-anchor="middle">10:00</text>
+          <text class="d-lab" x="536" y="26" text-anchor="middle">10:15</text>
+          <text class="d-lab" x="652" y="26" text-anchor="middle">10:30</text>
+          <text class="d-lab" x="768" y="26" text-anchor="middle">11:00</text>
+          <text class="d-lab" x="884" y="26" text-anchor="middle">11:30</text>
+          <text class="d-lab" x="1000" y="26" text-anchor="middle">22:00</text>
+
+          <path class="d-edge" d="M589 76H768V138" marker-end="url(#m4)"/>
+          <text class="d-lab" x="680" y="68" text-anchor="middle">what the 11:00 jobs read</text>
+
+          <rect class="d-box" x="135" y="50" width="106" height="52" rx="8"/>
+          <text class="d-chip" x="188" y="72" text-anchor="middle">Timetable</text>
+          <text class="d-sub" x="188" y="90" text-anchor="middle">for the bot</text>
+          <rect class="d-box" x="251" y="50" width="106" height="52" rx="8"/>
+          <text class="d-chip" x="304" y="72" text-anchor="middle">Invoices</text>
+          <text class="d-sub" x="304" y="90" text-anchor="middle">read only</text>
+          <rect class="d-box" x="367" y="50" width="106" height="52" rx="8"/>
+          <text class="d-chip" x="420" y="72" text-anchor="middle">Check-ins</text>
+          <text class="d-sub" x="420" y="90" text-anchor="middle">and contracts</text>
+          <rect class="d-box" x="483" y="50" width="106" height="52" rx="8"/>
+          <text class="d-chip" x="536" y="72" text-anchor="middle">Classes</text>
+          <text class="d-sub" x="536" y="90" text-anchor="middle">attendance</text>
+          <rect class="d-box" x="947" y="50" width="106" height="52" rx="8"/>
+          <text class="d-chip" x="1000" y="72" text-anchor="middle">Bookings</text>
+          <text class="d-sub" x="1000" y="90" text-anchor="middle">and tours</text>
+
+          <rect class="d-box" x="367" y="138" width="106" height="52" rx="8"/>
+          <text class="d-chip" x="420" y="160" text-anchor="middle">Payments</text>
+          <text class="d-sub" x="420" y="178" text-anchor="middle">dry run</text>
+          <rect class="d-box" x="715" y="138" width="106" height="52" rx="8"/>
+          <text class="d-chip" x="768" y="160" text-anchor="middle">Nudge, upsell</text>
+          <text class="d-sub" x="768" y="178" text-anchor="middle">plan upgrade</text>
+          <rect class="d-box" x="831" y="138" width="106" height="52" rx="8"/>
+          <text class="d-chip" x="884" y="160" text-anchor="middle">Trial</text>
+          <text class="d-sub" x="884" y="178" text-anchor="middle">follow-up</text>
+
+          <rect class="d-box" x="599" y="226" width="106" height="52" rx="8"/>
+          <text class="d-chip" x="652" y="248" text-anchor="middle">Health check</text>
+          <text class="d-sub" x="652" y="266" text-anchor="middle">e-mail alerts</text>
+        </svg>
+      </div>
+      <figcaption>The 10:00 and 10:15 syncs write what the 11:00 senders read, but they can't see today's visits, so each inactivity nudge re-checks today's activity live just before it goes out. Not shown: an hourly job that keeps the inbox's webhooks alive, and on Mondays at 09:00 the weekly report and the overdue-invoice list. Form e-mails, walk-ins, WhatsApp and the inbox run on events, all day.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="classifier">
+  <div class="wrap">
+    <div class="agent-head">
+      <span class="eyebrow">Agent 1</span>
+      <h2>The trial classifier</h2>
+      <div class="status"><span class="pill live">Live on every website trial request</span><span class="pill">Claude Haiku 4.5</span></div>
+    </div>
+    <p>When someone books a trial on the website, the form arrives as an e-mail with a free-text message. The classifier reads it and picks the first WhatsApp message they get, out of four paths.</p>
+    <div class="paths">
+      <div class="path"><b>A</b><strong>General welcome</strong><span>No class named, or a very short message.</span></div>
+      <div class="path"><b>B</b><strong>Named class</strong><span>The reply names the class they asked for.</span></div>
+      <div class="path"><b>R</b><strong>Reformer Pilates</strong><span>A separately paid module, so the reply states the price instead of promising a free trial.</span></div>
+      <div class="path c"><b>C</b><strong>A person replies</strong><span>A real question, or more than one class. A template can only name one, and answering half a request reads as not listening.</span></div>
+    </div>
+  </div>
+  <div class="wide" style="padding-top:1.1rem">
+    <figure class="fig">
+      <div class="fig-scroll">
+        <svg class="diagram" viewBox="0 0 1060 430" role="img" aria-label="Trial intake flow: the e-mail is parsed, an invalid phone goes to the desk, otherwise a contact and lead are created and Claude Haiku picks path A, B, R or C; Day 1 and Day 3 messages only go out after a live check that the person is still a lead">
+          <defs><marker id="m2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker></defs>
+          <g class="d-edge">
+            <path d="M150 70H190" marker-end="url(#m2)"/>
+            <path d="M340 70H380" marker-end="url(#m2)"/>
+            <path d="M550 70H590" marker-end="url(#m2)"/>
+            <path d="M760 70H780"/>
+            <path d="M780 39V177"/>
+            <path d="M780 39H800" marker-end="url(#m2)"/>
+            <path d="M780 85H800" marker-end="url(#m2)"/>
+            <path d="M780 131H800" marker-end="url(#m2)"/>
+            <path d="M780 177H800" marker-end="url(#m2)"/>
+            <path d="M265 106V150" marker-end="url(#m2)"/>
+            <path d="M915 196V240H75V270" marker-end="url(#m2)"/>
+            <path d="M150 300H230" marker-end="url(#m2)"/>
+            <path d="M370 300H420" marker-end="url(#m2)"/>
+            <path d="M560 300H630" marker-end="url(#m2)"/>
+            <path d="M770 300H820" marker-end="url(#m2)"/>
+            <path d="M300 334V370" marker-end="url(#m2)"/>
+            <path d="M700 334V370" marker-end="url(#m2)"/>
+          </g>
+          <text class="d-lab" x="360" y="62" text-anchor="middle">yes</text>
+          <text class="d-lab" x="273" y="132">no</text>
+          <text class="d-lab" x="923" y="224">all paths</text>
+          <text class="d-lab" x="190" y="292" text-anchor="middle">wait 24 h</text>
+          <text class="d-lab" x="395" y="292" text-anchor="middle">yes</text>
+          <text class="d-lab" x="595" y="292" text-anchor="middle">wait 48 h</text>
+          <text class="d-lab" x="795" y="292" text-anchor="middle">yes</text>
+          <text class="d-lab" x="308" y="356">no</text>
+          <text class="d-lab" x="708" y="356">no</text>
+
+          <rect class="d-box" x="0" y="40" width="150" height="60" rx="8"/>
+          <text class="d-name" x="75" y="66" text-anchor="middle">Form e-mail</text>
+          <text class="d-sub" x="75" y="85" text-anchor="middle">name, phone, message</text>
+          <polygon class="d-box" points="265,34 340,70 265,106 190,70"/>
+          <text class="d-chip" x="265" y="75" text-anchor="middle">Phone valid?</text>
+          <rect class="d-box" x="380" y="40" width="170" height="60" rx="8"/>
+          <text class="d-name" x="465" y="66" text-anchor="middle">Contact + lead</text>
+          <text class="d-sub" x="465" y="85" text-anchor="middle">Airtable and Virtuagym</text>
+          <rect class="d-ai" x="590" y="40" width="170" height="60" rx="8"/>
+          <text class="d-name" x="675" y="66" text-anchor="middle">Claude Haiku</text>
+          <text class="d-sub" x="675" y="85" text-anchor="middle">returns path + class</text>
+
+          <rect class="d-box" x="800" y="20" width="230" height="38" rx="8"/>
+          <text class="d-chip" x="816" y="44">A · General welcome</text>
+          <rect class="d-box" x="800" y="66" width="230" height="38" rx="8"/>
+          <text class="d-chip" x="816" y="90">B · Named class</text>
+          <rect class="d-box" x="800" y="112" width="230" height="38" rx="8"/>
+          <text class="d-chip" x="816" y="136">R · Reformer, with price</text>
+          <rect class="d-hand" x="800" y="158" width="230" height="38" rx="8"/>
+          <text class="d-chip" x="816" y="182">C · A person replies</text>
+
+          <rect class="d-hand" x="180" y="150" width="170" height="60" rx="8"/>
+          <text class="d-name" x="265" y="176" text-anchor="middle">Saved, flagged</text>
+          <text class="d-sub" x="265" y="195" text-anchor="middle">desk replies by e-mail</text>
+
+          <rect class="d-box" x="0" y="270" width="150" height="60" rx="8"/>
+          <text class="d-name" x="75" y="296" text-anchor="middle">Day 0</text>
+          <text class="d-sub" x="75" y="315" text-anchor="middle">template, or inbox (C)</text>
+          <polygon class="d-box" points="300,266 370,300 300,334 230,300"/>
+          <text class="d-chip" x="300" y="305" text-anchor="middle">Still a lead?</text>
+          <rect class="d-box" x="420" y="270" width="140" height="60" rx="8"/>
+          <text class="d-name" x="490" y="296" text-anchor="middle">Day 1</text>
+          <text class="d-sub" x="490" y="315" text-anchor="middle">follow-up</text>
+          <polygon class="d-box" points="700,266 770,300 700,334 630,300"/>
+          <text class="d-chip" x="700" y="305" text-anchor="middle">Still a lead?</text>
+          <rect class="d-box" x="820" y="270" width="150" height="60" rx="8"/>
+          <text class="d-name" x="895" y="296" text-anchor="middle">Day 3</text>
+          <text class="d-sub" x="895" y="315" text-anchor="middle">sign-up offer</text>
+
+          <rect class="d-band" x="230" y="370" width="540" height="44" rx="8"/>
+          <text x="500" y="397" text-anchor="middle"><tspan class="d-chip">Sequence stops</tspan><tspan class="d-sub" dx="8">already a member, booked, or opted out</tspan></text>
+        </svg>
+      </div>
+      <div class="key"><span><i class="k-ai"></i>Claude</span><span><i class="k-h"></i>A person takes it</span></div>
+      <figcaption>The classifier only decides the first message. Before Day 1 and Day 3, a live check asks Virtuagym whether the person has already joined and checks bookings and the opt-out flag. If that check fails, nothing is sent.</figcaption>
+    </figure>
+  </div>
+  <div class="wrap" style="padding-top:1.1rem">
+
+    <h3 class="sub">What went wrong</h3>
+    <p>In September the club told me someone who asked for Reformer Pilates had been answered about Aerial Yoga. The class list in the prompt had no Reformer entry, so the model picked the closest class it knew. All 10 Reformer requests since July were wrong. Eight people were told their Pilates trial was reserved, for a class that costs money and isn't in any membership.</p>
+    <p>While fixing it, I found that path C had never worked. Its code used <code>fetch</code>, which doesn't exist in n8n's sandbox, so it failed on every call. 14 of the 19 people ever sent to "a person replies" got no message and no flag in the inbox.</p>
+
+    <h3 class="sub">How I checked the fix</h3>
+    <p>I replayed all 75 real trial messages through the old and the new prompt, with the production model and credential, in a throwaway workflow. 24 classifications changed, and I read every one: 8 Reformer requests moved to R, 2 multi-class requests moved to a person, and 12 general gym requests moved out of the broken path C to a welcome. The hard cases:</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Message</th><th>Path</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>"former pilates"</td><td class="mono">R</td><td>A typo for Reformer.</td></tr>
+          <tr><td>"pilates of yoga"</td><td class="mono">B</td><td>Dutch "of" means "or": one class, either is fine.</td></tr>
+          <tr><td>"mac Power (Full Body Barbell workout)"</td><td class="mono">B</td><td>One class with a long name, not two classes.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="lesson">
+      <span class="eyebrow">What I took from it</span>
+      <p>A classifier with a closed list fails silently and confidently on anything missing from the list. I now check the list against the live source and replay the real message history, old prompt against new, before I ship a prompt change. I also test the hand-over path as hard as the happy path, because that is where this one was broken.</p>
+    </div>
+  </div>
+</section>
+
+<section id="assistant">
+  <div class="wrap">
+    <div class="agent-head">
+      <span class="eyebrow">Agent 2</span>
+      <h2>The WhatsApp assistant</h2>
+      <div class="status"><span class="pill held">Built and tested · answers only my test number</span><span class="pill">Claude Sonnet 4.6</span></div>
+    </div>
+    <p>It answers questions about opening hours, prices, classes, trials and cancelling, using a staff-editable FAQ and the live timetable, and hands everything else to a person. It runs inside the inbound WhatsApp webhook as three nodes: a gate, the Claude call, and a decide-and-act step. I tuned the prompt first in a local harness that mirrors those nodes, then ported it.</p>
+
+  </div>
+  <div class="wide" style="padding-top:1.1rem">
+    <figure class="fig">
+      <div class="fig-scroll">
+        <svg class="diagram" viewBox="0 0 1060 280" role="img" aria-label="Assistant flow: the message is stored, the gate either stops it or passes it to one forced-tool Claude call; only a confident, non-empty reply becomes a draft card for staff; anything else, including any error, is handed to a person">
+          <defs><marker id="m3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker></defs>
+          <g class="d-edge">
+            <path d="M130 90H160" marker-end="url(#m3)"/>
+            <path d="M300 90H325" marker-end="url(#m3)"/>
+            <path d="M465 90H500" marker-end="url(#m3)"/>
+            <path d="M660 90H690" marker-end="url(#m3)"/>
+            <path d="M840 90H880" marker-end="url(#m3)"/>
+            <path d="M395 130V200" marker-end="url(#m3)"/>
+            <path d="M765 134V200" marker-end="url(#m3)"/>
+            <path d="M580 120V228H690" marker-end="url(#m3)"/>
+          </g>
+          <text class="d-lab" x="482" y="82" text-anchor="middle">yes</text>
+          <text class="d-lab" x="860" y="82" text-anchor="middle">yes</text>
+          <text class="d-lab" x="403" y="170">no</text>
+          <text class="d-lab" x="773" y="170">no</text>
+          <text class="d-lab" x="588" y="170">any error</text>
+
+          <rect class="d-box" x="0" y="60" width="130" height="60" rx="8"/>
+          <text class="d-name" x="65" y="86" text-anchor="middle">Message in</text>
+          <text class="d-sub" x="65" y="105" text-anchor="middle">Meta webhook</text>
+          <rect class="d-box" x="160" y="60" width="140" height="60" rx="8"/>
+          <text class="d-name" x="230" y="86" text-anchor="middle">Store, dedupe</text>
+          <text class="d-sub" x="230" y="105" text-anchor="middle">ack 200 first</text>
+          <polygon class="d-box" points="395,50 465,90 395,130 325,90"/>
+          <text class="d-chip" x="395" y="95" text-anchor="middle">Gate passes?</text>
+          <rect class="d-ai" x="500" y="60" width="160" height="60" rx="8"/>
+          <text class="d-name" x="580" y="86" text-anchor="middle">Claude Sonnet</text>
+          <text class="d-sub" x="580" y="105" text-anchor="middle">forced tool: emit_reply</text>
+          <polygon class="d-box" points="765,46 840,90 765,134 690,90"/>
+          <text class="d-chip" x="765" y="88" text-anchor="middle">Confident</text>
+          <text class="d-chip" x="765" y="104" text-anchor="middle">reply?</text>
+          <rect class="d-hand" x="880" y="60" width="170" height="60" rx="8"/>
+          <text class="d-name" x="965" y="86" text-anchor="middle">Draft card</text>
+          <text class="d-sub" x="965" y="105" text-anchor="middle">send, edit or dismiss</text>
+
+          <rect class="d-box" x="325" y="200" width="140" height="56" rx="8"/>
+          <text class="d-name" x="395" y="224" text-anchor="middle">No reply</text>
+          <text class="d-sub" x="395" y="242" text-anchor="middle">waits in the inbox</text>
+          <rect class="d-hand" x="690" y="200" width="150" height="56" rx="8"/>
+          <text class="d-name" x="765" y="224" text-anchor="middle">Hand over</text>
+          <text class="d-sub" x="765" y="242" text-anchor="middle">flagged, nothing sent</text>
+        </svg>
+      </div>
+      <div class="key"><span><i class="k-ai"></i>Claude</span><span><i class="k-h"></i>A person decides</span></div>
+      <figcaption>Three nodes inside the inbound webhook: the gate, the Claude call, and a decide step. "Confident reply" means the model chose to reply, its confidence is at least 0.75, and the text isn't empty. In auto mode the draft card becomes a direct send; today that runs only for my test number.</figcaption>
+    </figure>
+  </div>
+  <div class="wrap" style="padding-top:1.1rem; display:flex; flex-direction:column; gap:1.1rem">
+    <p><b>The gate</b> runs before any API call: on/off switch, do-not-contact, a staff member has claimed the thread, our own number, non-text message, opt-out keyword, empty message, a repeat delivery from Meta, and a 20-second rate cap. <b>The Claude call</b> sends a cached system prompt (identity, tone, FAQ, rules), a small uncached context block, and the thread as alternating turns.</p>
+
+    <pre aria-label="Production code excerpt"><span class="c">// Bot Decide + Act (n8n Code node, production)</span>
+<span class="c">// A max_tokens cut-off returns a PARTIAL tool input (e.g. only {decision:'reply'}),</span>
+<span class="c">// which would otherwise read as confidence 0 and escalate with a blank reason.</span>
+if (resp.stop_reason === <span class="s">'max_tokens'</span>) throw new Error(<span class="s">'truncated_max_tokens'</span>);
+const tu = (resp.content || []).find((b) =&gt; b.type === <span class="s">'tool_use'</span> &amp;&amp; b.name === <span class="s">'emit_reply'</span>);
+if (!tu || !tu.input) throw new Error(<span class="s">'no_tool_use'</span>);
+<span class="c">// ...any throw above becomes { decision: 'escalate', reason: 'bot_error: ...' }</span>
+
+let decision = parsed.decision === <span class="s">'reply'</span> ? <span class="s">'reply'</span> : <span class="s">'escalate'</span>;
+confidence = Math.max(0, Math.min(1, Number(parsed.confidence) || 0));
+if (decision === <span class="s">'reply'</span> &amp;&amp; confidence &lt; CONF_THRESHOLD) decision = <span class="s">'escalate'</span>;  <span class="c">// 0.75, staff-set</span>
+if (decision === <span class="s">'reply'</span> &amp;&amp; !String(parsed.reply || <span class="s">''</span>).trim()) decision = <span class="s">'escalate'</span>;</pre>
+    <p class="code-cap">Lightly shortened from the deployed node. The model's output is never trusted to be complete: every path that isn't a clean, confident reply ends with a person.</p>
+
+    <h3 class="sub">Prompt and knowledge</h3>
+    <blockquote class="prompt">Only answer from the facts above. If the answer is not clearly in those facts, do NOT guess, invent, estimate, or reason your way to an answer. Escalate to a human instead. A wrong confident answer is far worse than handing it to a person.</blockquote>
+    <p>Always escalate, however it's phrased:</p>
+    <ol class="esc-rules">
+      <li>Anything not in the facts.</li>
+      <li>Personal training or nutrition coaching specifics.</li>
+      <li>Money and plan changes: refunds, billing disputes, switching, freezing. The plain "how do I cancel?" procedure is answered directly.</li>
+      <li>Anything medical: injuries, pregnancy, conditions.</li>
+      <li>Complaints or upset messages.</li>
+      <li>Confirming a specific booked slot.</li>
+      <li>A request for a person, or "is this a bot?".</li>
+    </ol>
+    <ul class="plain">
+      <li><b>Grounded in what staff actually say.</b> A script pulled 101 question-and-answer pairs out of real front-desk replies. Six facts in the FAQ were missing or wrong. The FAQ said the trial was free; it costs €14.50, which comes off the first invoice if you sign up that day.</li>
+      <li><b>Live timetable.</b> A job at 06:00 reads the week's classes from the member system and stores a clean timetable the prompt includes. The events endpoint's cursor tracks edits, not dates, and a short one silently dropped half the week's classes. A review caught that before launch.</li>
+      <li><b>Staff own the knowledge.</b> FAQ, tone, mode, threshold and the on/off switch live in a settings row edited from the inbox. The editor filters prompt-injection attempts: override phrasing, fake section headers, role tags, the tool's name.</li>
+      <li><b>Minimal data.</b> The model sees today's date, a first name, language, CRM status and membership type. No e-mail, phone number or IDs. The big static prefix is cached.</li>
+    </ul>
+
+    <h3 class="sub">Failure modes I found and fixed</h3>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>What happened</th><th>Why</th><th>Fix</th></tr></thead>
+        <tbody>
+          <tr><td>It went quiet for good after its first escalation</td><td>The gate skipped threads flagged "needs human". The assistant set that flag itself and nothing cleared it.</td><td>Stand down only when a person has claimed the thread.</td></tr>
+          <tr><td>"How do I stop my membership?" counted as an opt-out</td><td>Keyword match on "stop".</td><td>A one-word keyword counts only in a short message (three words or fewer) without a question mark.</td></tr>
+          <tr><td>A cancellation question would get silence</td><td>Escalations are silent on WhatsApp by design, so the customer sees nothing.</td><td>The cancellation procedure became an answerable fact. Escalation now covers money and plan changes.</td></tr>
+          <tr><td>Customers would see literal <code>**asterisks**</code></td><td>WhatsApp bold uses single asterisks.</td><td>A Markdown-to-WhatsApp formatter on every reply, unit tested.</td></tr>
+          <tr><td>The off switch could never switch it off</td><td>Airtable leaves an unticked checkbox out of the API response, so <code>=== false</code> never matches.</td><td>Test <code>!== true</code>. Found in a multi-agent review before launch.</td></tr>
+          <tr><td>A timetable question got no reply and no draft</td><td>The answer hit <code>max_tokens</code>. The partial tool input held only the decision, read as confidence 0, and escalated with a blank reason.</td><td>Limit raised from 400 to 1,200, and truncation became a named error (code above).</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="held-box">
+      <h3>Why it isn't answering customers yet</h3>
+      <p>The club hasn't signed a data processing agreement that covers the model provider, and its privacy notice doesn't mention AI yet. Until both are done, the gate only lets my own number through. Switching it on is a one-line change, and I am keeping it closed on purpose. The case for opening it is in the data: in an August sample, 26 of 45 recent customer threads ended without an answer. The plan is draft mode first, so staff approve every reply before anything goes out on its own.</p>
+    </div>
+  </div>
+</section>
+
+<section id="sending">
+  <div class="wide">
+    <h2>Sending to real people</h2>
+    <p class="wrap" style="margin-inline:0">Most messages come from scheduled automations on Meta-approved templates. They reach real people every day, so a large part of the work was the rules around each send. Each rule below came from a real incident.</p>
+    <div class="incidents">
+      <article class="incident">
+        <p class="what">A member who had given notice was offered a 52-week plan four days before their contract ended. In the member system, "active" stays true for the whole notice period.</p>
+        <p class="rule-line"><b>Rule</b>Every member-facing send checks notice given, contract end and contract start. A back-check found five such sends. The upgrade pool fell from 72 to 40, because the longest-standing members are also the likeliest to be leaving.</p>
+      </article>
+      <article class="incident">
+        <p class="what">Two people who had just signed up got "how was your trial?" and a sign-up offer, because the CRM still listed them as leads.</p>
+        <p class="rule-line"><b>Rule</b>Every lead follow-up asks the member system live, just before sending, and sends nothing if it can't get an answer.</p>
+      </article>
+      <article class="incident">
+        <p class="what">Inactivity was judged on card check-ins. 171 people who train in classes never swipe a card, and 30 weekly class-goers were about to get "we miss you".</p>
+        <p class="rule-line"><b>Rule</b>A class attendance sync, and inactivity uses whichever came last: a check-in or a class.</p>
+      </article>
+      <article class="incident">
+        <p class="what">Delivery receipts were ignored. In 14 days, 43 messages never arrived, and the inbox showed them as sent.</p>
+        <p class="rule-line"><b>Rule</b>Sent, delivered, read and failed are recorded per message and shown in the inbox. Known-bad numbers are never messaged again.</p>
+      </article>
+      <article class="incident">
+        <p class="what">Numbers copied from a phone's contact card carry invisible text-direction marks. JavaScript's <code>\s</code> doesn't match them, so valid numbers were stored as invalid.</p>
+        <p class="rule-line"><b>Rule</b>Strip those marks first. Ambiguous numbers are flagged for the desk and never guessed, because a guessed country code can message a stranger.</p>
+      </article>
+      <article class="incident">
+        <p class="what">A 28-minute Airtable outage lost a walk-in lead and two customer messages. I recovered them from the failed runs' raw payloads.</p>
+        <p class="rule-line"><b>Rule</b>Retries on every step whose failure loses a lead, and no intake branch may end before the lead reaches both systems.</p>
+      </article>
+    </div>
+    <p class="wrap" style="margin-inline:0">About 3,100 outbound messages have been logged so far, from automations and from staff in the inbox. Meta lowers a number's quality rating when people block or report it. After more than 1,560 automated sends, the club's number is still rated GREEN, and all 48 templates are approved.</p>
+  </div>
+</section>
+
+<section id="evals">
+  <div class="wrap">
+    <h2>Evaluation and monitoring</h2>
+    <div class="two">
+      <div>
+        <h3>Before a release</h3>
+        <ul class="plain">
+          <li><b>Eval harness:</b> 33 cases (20 should reply, 10 should escalate, 3 the gate should stop), run against the real model. Decisions are scored automatically; reply wording I read myself.</li>
+          <li><b>Real-history replays:</b> old prompt against new on real messages. For data jobs, old code against new on the same live data, expecting identical output apart from the intended change.</li>
+          <li><b>Deploy checks:</b> back up, syntax-check every code node, read the workflow back byte-identical, connections unchanged, still active.</li>
+          <li><b>Adversarial review:</b> many independent Claude reviewers on a risky change. For the assistant: 33 reviewers, 13 confirmed findings, all fixed before launch.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>In production</h3>
+        <ul class="plain">
+          <li><b>Daily health check:</b> every workflow active and its latest run healthy, API probes, template status, an urgent alert by e-mail.</li>
+          <li><b>Delivery status</b> on every message.</li>
+          <li><b>Weekly report</b> to the owner and finance lead: leads, conversion, messages and member activity.</li>
+        </ul>
+      </div>
+    </div>
+    <h3 class="sub">Measuring the right thing</h3>
+    <p>Both the member system's dashboard and the CRM said about 19% of leads became members. The member system only links a lead to a member when staff convert the lead record by hand, which they rarely do. Matching leads to members on e-mail and phone gave 40% across the club. The weekly report now shows both numbers side by side, with the method named.</p>
+    <h3 class="sub">A monitoring failure</h3>
+    <p>The health check, its alerts and the weekly report all sent through one Gmail credential. When it expired, monitoring went silent for eight days, and I found a server outage from a screenshot of the hosting dashboard. A second alert channel outside the server is the open fix.</p>
+  </div>
+</section>
+
+<section id="work">
+  <div class="wrap">
+    <h2>How I work</h2>
+    <blockquote class="quote">"I don't want people to feel they get spammed with wrong messages. That puts distrust into every message they get from the club, and they answer less in the future."<cite>From my notes, September 2026, before fixing the try-out follow-ups</cite></blockquote>
+    <ul class="plain">
+      <li>I test on my own number, with a temporary every-minute schedule for headless runs, and restore the exact previous state afterwards.</li>
+      <li>I back up before every change and deploy through n8n's REST API, so a deploy can be reproduced and rolled back. Deploys, outage recovery and the monthly offer refresh each have a written runbook.</li>
+      <li>Every incident becomes a written rule, traced to the incident that caused it. The public list is <a href="https://github.com/Anditon/mac-whatsapp-agents/blob/main/docs/lessons.md">in the repo</a>.</li>
+      <li>I write for people who aren't technical. The owner, the finance lead and the front desk get plain reports and decide on anything that touches members.</li>
+      <li>I build with Claude Code as my pair. I make the design calls, write the tests, read the diffs, and answer for what runs in production.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="gaps">
+  <div class="wrap">
+    <h2>What this project doesn't show</h2>
+    <ul class="plain">
+      <li>The assistant hasn't talked to real customers yet. The classifier has, on every website trial request.</li>
+      <li>Retrieval is small: an FAQ of about 350 lines in a cached prompt, plus a timetable. I haven't built embeddings or chunked search over large document sets.</li>
+      <li>Reply wording is judged by eye. The next step would be a judge calibrated on what staff change in drafts.</li>
+      <li>No voice channel yet.</li>
+      <li>The code lives in n8n Code nodes, with that sandbox's limits (300 seconds per run, no <code>fetch</code>). It is real JavaScript, but not a conventional repository with CI.</li>
+      <li>One client, built alone. My reviewers have been AI reviewers and the client, not other engineers.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="build">
+  <div class="wrap">
+    <h2>One thing I would build at BluLang</h2>
+    <div class="idea">
+      <h3>Earned autonomy for BLUbot</h3>
+      <p>Every new client's agent starts in draft mode. For each draft, log what staff did with it: sent as is, edited, or discarded, and how much they changed. Group the results by intent. When an intent such as opening hours or prices reaches, say, 95% sent unchanged over 50 drafts, it moves to auto-send for that client. An edit-back or a complaint moves it back to draft.</p>
+      <p>The hand-over line then comes from each client's own data instead of a guess at setup, and every staff edit becomes a test case for the next prompt change. I built the draft half of this for the gym; the measuring half is what I'd add.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>Built with n8n, the WhatsApp Cloud API, Claude (Sonnet 4.6, Haiku 4.5), the Virtuagym API, Airtable, JavaScript, and a hand-written HTML/CSS inbox on Netlify. Code: <a href="https://github.com/Anditon/mac-whatsapp-agents">github.com/Anditon/mac-whatsapp-agents</a>.</p>
+    <p>Figures are from the live system and its logs, as of November 2026 unless a date is given. Member data is left out on purpose, and the inbox screenshot uses made-up people.</p>
+  </div>
+</footer>
+
+</body>
+</html>
