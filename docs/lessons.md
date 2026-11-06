@@ -5,7 +5,7 @@ Each rule below came from a real incident in this system. They are the checklist
 ## Before any message reaches a person
 
 1. **"Active member" doesn't mean "staying".** Every member-facing send checks do-not-contact, notice given, a contract end in the past and a contract start in the future. *Incident:* a member who had given notice was offered a 52-week plan four days before their contract ended. A back-check found five such sends.
-2. **Ask the source of truth at send time.** Lead follow-ups ask Virtuagym live whether the person has already joined, and send nothing if the check fails. *Incident:* two people who had just signed up got "how was your trial?" because the CRM status lagged a day.
+2. **Ask the source of truth at send time.** Lead follow-ups ask Virtuagym live whether the person has already joined, and send nothing if the check fails. *Incident:* two people who had just signed up got trial follow-ups ("how was your trial?", a sign-up offer), because the CRM still listed them as leads.
 3. **Morning syncs can't see this morning.** Inactivity nudges re-check today's activity live right before sending. *Incident:* a member got "everything okay?" thirty minutes into a class they had booked.
 4. **Never send to a number known to be bad.** Flag it for the front desk instead. A permanent Meta error also aborted the rest of that run.
 5. **Template parameters can't hold line breaks, tabs or long runs of spaces.** Collapse whitespace first, or Meta rejects the send.
@@ -14,7 +14,7 @@ Each rule below came from a real incident in this system. They are the checklist
 
 ## Agents and models
 
-8. **A closed list fails silently and confidently.** *Incident:* Reformer Pilates was missing from the classifier's class list, so all ten Reformer requests were matched to the nearest class, with a free-trial promise for a paid module. Check the list against the live source.
+8. **A closed list fails silently and confidently.** *Incident:* Reformer Pilates was missing from the classifier's class list, so all ten Reformer requests were matched to the nearest class, and eight people were told their Pilates trial was reserved, implying a free trial of a paid module. Check the list against the live source.
 9. **Replay real history before shipping a prompt change.** Old prompt against new on the same real messages, and read every answer that changed (75 messages, 24 changes for the Reformer fix).
 10. **Test the hand-over path as hard as the happy path.** *Incident:* the "a person replies" path had never worked, so 14 of 19 people sent to a human got nothing.
 11. **Never trust a model output to be complete.** *Incident:* a long answer hit `max_tokens`; the partial tool input held only the decision, read as confidence 0, and escalated with a blank reason. Truncation is now its own named error.

@@ -1,4 +1,4 @@
-// cases.js — the starter corpus (27 cases).
+// cases.js — the starter corpus (33 cases).
 //
 // Each case:
 //   { id, note, inboundText, messageType?, fromPhone?, gymPhone?,
@@ -165,7 +165,7 @@ module.exports = [
   },
   {
     id: 'freeze-en',
-    note: 'Rule 3 — freeze/pause. [VERIFY] in FAQ → not answerable → escalate.',
+    note: 'Rule 3 — freeze/pause always escalates (prompt rule 3 and the FAQ hand-over list), even though the FAQ now states the normal no-pause policy.',
     inboundText: 'Can I freeze my membership while I travel for 2 months?',
     contact: { firstName: 'Oliver', language: 'EN', status: 'Active Member', membership: 'mac GYM 26wk' },
     thread: [],
@@ -228,12 +228,13 @@ module.exports = [
     expect: 'escalate',
   },
   {
-    id: 'not-in-faq-parking-nl',
-    note: 'Rule 1 — parking is [VERIFY], not in FAQ → escalate, do not guess.',
+    id: 'parking-nl',
+    note: 'Parking is in the FAQ now (no MAC car park, nearest parking further up the Brusselsestraat) → reply in NL. The FAQ does not say whether it is free, so the reply must not claim that.',
     inboundText: 'Is er gratis parkeren bij de sportschool?',
     contact: { firstName: 'Karin', language: 'NL', status: 'Lead' },
     thread: [],
-    expect: 'escalate',
+    expect: 'reply',
+    expectLang: 'NL',
   },
   {
     id: 'not-in-faq-age-en',

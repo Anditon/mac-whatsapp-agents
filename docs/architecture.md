@@ -27,8 +27,8 @@ flowchart LR
   G -- approved template --> T[WhatsApp templates]
   AS -- draft or escalate --> I[Front-desk inbox]
   CL -- path C --> I
-  N8N <-- reads + writes --> AT[(Airtable)]
-  I <-- inbox API --> AT
+  N8N <-->|reads and writes| AT[(Airtable)]
+  I <-->|inbox API| AT
 ```
 
 Every template send passes the same gates, whichever agent or job started it.

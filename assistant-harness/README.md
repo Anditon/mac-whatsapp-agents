@@ -22,7 +22,7 @@ ANTHROPIC_API_KEY=sk-ant-... node chat.js --nl --member       # interactive chat
 | `prompt.js` | Fixed machinery: identity, the golden rule, seven escalation rules, language rule, the `emit_reply` tool. | Locked |
 | `gate.js` | `shouldBotRun()`: the checks that run before any API call. | Locked |
 | `claude.js` | The Messages API call. Any error or a truncated response becomes an escalation. | Locked |
-| `cases.js` | 33 cases: 19 should reply, 11 should escalate, 3 the gate should stop. | Add real messages over time |
+| `cases.js` | 33 cases: 20 should reply, 10 should escalate, 3 the gate should stop. | Add real messages over time |
 | `run.js`, `chat.js` | The eval runner and the terminal chat. | |
 | `mine-staff-answers.js` | Pulls real front-desk answers out of the conversation store so missing or wrong FAQ facts can be found. Read-only. | |
 
@@ -37,6 +37,6 @@ ANTHROPIC_API_KEY=sk-ant-... node chat.js --nl --member       # interactive chat
 
 ## Known gaps
 
-- Two cases are out of date: `not-in-faq-parking-nl` and `freeze-en` still expect an escalation, but the FAQ has since gained a parking section and the pausing policy. Their expectations need a fresh run and a decision.
+- The FAQ's pausing section says the no-pause policy "can be stated plainly", while prompt rule 3 and the FAQ's own hand-over list escalate every freeze or pause request. The eval follows the rule (`freeze-en` expects an escalation); the FAQ line should be brought in line.
 - Wording isn't scored automatically. The next step is an LLM judge with a short rubric, checked against human ratings before it is trusted.
 - The live gate also reads the conversation's timing fields (rate cap) and the settings row, which the harness stubs.
