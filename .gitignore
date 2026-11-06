@@ -1,0 +1,7 @@
+.env
+.env.*
+node_modules/
+*.log
+# output of mine-staff-answers.js holds real customer messages: never commit it
+mined*.txt
+.DS_Store
